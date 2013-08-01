@@ -1,0 +1,10 @@
+#ifndef DEFS_H
+#define DEFS_H
+
+#define EVENT_MAX_SOURCES 2
+#define EVENT_MAX_LISTENERS 2
+#define SCHEDULER_MAX_TASKS 5
+#define SHELL_CMD_MAX_LENGTH 17
+#define SHELL_MAX_HANDLERS 5
+
+#endif

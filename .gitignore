@@ -1,0 +1,10 @@
+.DS_Store
+*.tmproj
+*.o
+*.a
+*.elf
+*.eep
+*.hex
+/arduino
+build
+tty.arduino
