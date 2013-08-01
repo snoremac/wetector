@@ -1,5 +1,6 @@
 
 #include <inttypes.h>
+#include <avr/interrupt.h>
 
 #include "dht11.h"
 #include "sensimatic.h"
@@ -52,6 +53,8 @@ bool setup_handler(time_t scheduled_time, struct task* task) {
 
   struct task_config humidity_task_config = { "hum", TASK_FOREVER, 2000 };
 	notifier_add_task(&humidity_task_config, humidity_on_tick, NULL, NULL);  
+
+  gpio_set_mode(&sensor_gpio, GPIO_OUTPUT_NORMAL);
 	notifier_add_task(&(struct task_config){ "led", TASK_FOREVER, 500 }, flip_led_on_tick, NULL, NULL);
 
   shell_register_handler("ht", shell_handler);
@@ -116,30 +119,53 @@ static void push_sample(struct sample_buffer* buffer, const uint8_t sample) {
 }
 
 static shell_result_t shell_handler(shell_command_t* command) {
+  cli();
 	if (command->args_count == 0) return SHELL_RESULT_FAIL;
 	
 	if (string_eq(command->command, "ht")) {
-		if (string_eq(command->args[0], "stats")) {
-      shell_printf("Metric\tPeriod\tCount\tSum\tAverage\n");
-      shell_printf("%s\t%s\t%u\t%u\t%u\n", "Temperature", "20 sec",
-          temperature_20_sec_buffer.count,
-          temperature_20_sec_buffer.sum,
-          temperature_20_sec_buffer.sum / temperature_10_min_buffer.count);
-      shell_printf("%s\t%s\t%u\t%u\t%u\n", "Temperature", "10 min",
-          temperature_10_min_buffer.count,
-          temperature_10_min_buffer.sum,
-          temperature_10_min_buffer.sum / temperature_10_min_buffer.count);
-      shell_printf("%s\t%s\t%u\t%u\t%u\n", "Humidity", "20 sec",
-          humidity_20_sec_buffer.count,
-          humidity_20_sec_buffer.sum,
-          humidity_20_sec_buffer.sum / humidity_10_min_buffer.count);
-      shell_printf("%s\t%s\t%u\t%u\t%u\n", "Humidity", "10 min",
-          humidity_10_min_buffer.count,
-          humidity_10_min_buffer.sum,
-          humidity_10_min_buffer.sum / humidity_10_min_buffer.count);
+		if (string_eq(command->args[0], "av")) {
+      shell_printf("Metric\t\t20 sec av\t10 min av\n");
+      
+      uint32_t temp_20_sec = temperature_20_sec_buffer.sum / temperature_20_sec_buffer.count;
+      uint32_t temp_10_min = temperature_10_min_buffer.sum / temperature_10_min_buffer.count;
+      shell_printf("Temperature\t%llu C\t\t%lu C\n", temp_20_sec, temp_10_min);
+          
+      uint32_t hum_20_sec = humidity_20_sec_buffer.sum / humidity_20_sec_buffer.count;
+      uint32_t hum_10_min = humidity_10_min_buffer.sum / humidity_10_min_buffer.count;
+      shell_printf("Humidity\t%lu %%\t\t%lu %%\n", hum_20_sec, hum_10_min);
+
+		} else if (string_eq(command->args[0], "tot")) {
+      shell_printf("Metric\t\t20 sec cnt\t20 sec sum\t10 min cnt\t10 min sum\n");
+
+      //shell_printf("Sum: %u\n", temperature_10_min_buffer.sum);
+      shell_printf("Temperature\t%u\t\t%lu\t\t%u\t\t%lu\t\t\n",
+        temperature_20_sec_buffer.count,
+        temperature_20_sec_buffer.sum,
+        temperature_10_min_buffer.count,
+        temperature_10_min_buffer.sum
+      );
+      //shell_printf("Sum: %u\n", humidity_10_min_buffer.sum);
+      shell_printf("Humidity\t%u\t\t%lu\t\t%u\t\t%lu\t\t\n",
+        humidity_20_sec_buffer.count,
+        humidity_20_sec_buffer.sum,
+        humidity_10_min_buffer.count,
+        humidity_10_min_buffer.sum
+      );
+
+      /*
+      shell_printf("Temperature\t%u\t\t%lu\n",
+        temperature_10_min_buffer.count,
+        temperature_10_min_buffer.sum
+      );
+      shell_printf("Humidity\t%u\t\t%lu\n",
+        humidity_10_min_buffer.count,
+        humidity_10_min_buffer.sum
+      );
+      */
 		} else {
 			return SHELL_RESULT_FAIL;
 		}
 	}
+  sei();
 	return SHELL_RESULT_SUCCESS;
 }
