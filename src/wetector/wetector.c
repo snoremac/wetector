@@ -1,7 +1,5 @@
 
 #include <inttypes.h>
-#include <avr/interrupt.h>
-#include <avr/eeprom.h>
 
 #include "dht11.h"
 #include "sensimatic.h"
@@ -9,16 +7,9 @@
 #include "hum_temp.h"
 #include "log.h"
 #include "notifier.h"
+#include "sample_buffer.h"
 #include "shell.h"
 #include "util.h"
-
-struct sample_buffer {
-  uint16_t size;
-  uint16_t start;
-  uint16_t count;
-  uint32_t sum;
-  uint8_t* samples;
-};
 
 static struct gpio sensor_gpio = { .port  = GPIO_PORT_C, .pin = GPIO_PIN_0 };
 static struct gpio led_gpio = { .port = GPIO_PORT_B, .pin = GPIO_PIN_5 };
@@ -44,17 +35,11 @@ static bool humidity_on_tick(time_t time, struct task* task);
 static bool flip_led_on_tick(time_t time, struct task* task);
 static void humidity_on_complete(struct hum_temp_reading* reading);
 
-static void sample_buffer_init(struct sample_buffer* buffer, uint8_t* samples, const uint16_t size);
-static void push_sample(struct sample_buffer* buffer, const uint8_t sample);
-
 static uint16_t eeprom_load(void);
 static uint16_t eeprom_save(void);
-static void eeprom_read_buffer(struct sample_buffer* buffer, uint16_t pos);
-static void eeprom_write_buffer(struct sample_buffer* buffer, uint16_t pos);
 
 static void print_stats(void);
 static void print_samples(void);
-static void print_sample_buffer(struct sample_buffer* buffer);
 
 bool setup_handler(time_t scheduled_time, struct task* task) {
   sample_buffer_init(&humidity_20_sec_buffer, humidity_20_sec_samples, ARRAY_SIZE(humidity_20_sec_samples));
@@ -99,35 +84,6 @@ static bool flip_led_on_tick(time_t time, struct task* task) {
 	return true;
 }
 
-static void sample_buffer_init(struct sample_buffer* buffer, uint8_t* samples, const uint16_t size) {
-    buffer->size = size;
-    buffer->start = 0;
-    buffer->count = 0;
-    buffer->sum = 0;
-    buffer->samples = samples;
-}
- 
-static uint8_t sample_at(struct sample_buffer* buffer, uint16_t pos) {
-  uint16_t real_pos = (buffer->start + pos) % buffer->size;
-  return buffer->samples[real_pos];
-}
-
-static void push_sample(struct sample_buffer* buffer, const uint8_t sample) {
-  if (buffer->count == buffer->size) {
-    buffer->sum -= buffer->samples[buffer->start];
-  }
-
-  uint16_t end = (buffer->start + buffer->count) % buffer->size;
-  buffer->samples[end] = sample;
-  buffer->sum += sample;
-
-  if (buffer->count == buffer->size) {
-    buffer->start = (buffer->start + 1) % buffer->size;      
-  } else {
-    buffer->count++;
-  }
-}
-
 static uint16_t eeprom_load() {
   uint16_t pos = 0;
   for (uint8_t i = 0; i < ARRAY_SIZE(sample_buffers); i++) {
@@ -138,17 +94,6 @@ static uint16_t eeprom_load() {
   return pos;
 }
 
-static void eeprom_read_buffer(struct sample_buffer* buffer, uint16_t pos) {
-  eeprom_busy_wait();
-  uint16_t length = eeprom_read_word((uint16_t*) pos);
-  pos += 2;
-  
-  for (uint16_t i = 0; i < length; i++) {
-    eeprom_busy_wait();  
-    push_sample(buffer, eeprom_read_byte((uint8_t*) pos + i));
-  }
-}
-
 static uint16_t eeprom_save() {
   uint16_t pos = 0;
   for (uint8_t i = 0; i < ARRAY_SIZE(sample_buffers); i++) {
@@ -156,17 +101,6 @@ static uint16_t eeprom_save() {
     pos += sample_buffers[i]->count + 2;
   }
   return pos;
-}
-
-static void eeprom_write_buffer(struct sample_buffer* buffer, uint16_t pos) {
-  eeprom_busy_wait();
-  eeprom_update_word((uint16_t*) pos, buffer->count);
-  pos += 2;
-  
-  for (uint16_t i = 0; i < buffer->count; i++) {
-    eeprom_busy_wait();  
-    eeprom_update_byte((uint8_t*) pos + i, sample_at(buffer, i));
-  }
 }
 
 static shell_result_t shell_handler(shell_command_t* command) {
@@ -187,7 +121,6 @@ static shell_result_t shell_handler(shell_command_t* command) {
 			return SHELL_RESULT_FAIL;
 		}
 	}
-  sei();
 	return SHELL_RESULT_SUCCESS;
 }
 
@@ -221,26 +154,14 @@ static void print_stats() {
 }
 
 static void print_samples() {
+  FILE* shell_stream = shell_get_stream();
   shell_printf("Humidity 20 sec:\n");
-  print_sample_buffer(&humidity_20_sec_buffer);  
+  print_sample_buffer(&humidity_20_sec_buffer, shell_stream);
   shell_printf("Humidity 10 min:\n");
-  print_sample_buffer(&humidity_10_min_buffer);  
+  print_sample_buffer(&humidity_10_min_buffer, shell_stream);
   shell_printf("Temperature 20 sec:\n");
-  print_sample_buffer(&temperature_20_sec_buffer);  
+  print_sample_buffer(&temperature_20_sec_buffer, shell_stream);
   shell_printf("Temperature 10 min:\n");
-  print_sample_buffer(&temperature_10_min_buffer);  
-}
-
-static void print_sample_buffer(struct sample_buffer* buffer) {
-  for (uint16_t i = 0; i < buffer->count; i++) {
-    shell_printf("%02u", sample_at(buffer, i));
-    if (i + 1 < buffer->count) {
-      shell_printf(" ");      
-    }
-    if ((i + 1) % 25 == 0) {
-      shell_printf("\n");      
-    }    
-  }
-  shell_printf("\n\n");      
+  print_sample_buffer(&temperature_10_min_buffer, shell_stream);
 }
 
