@@ -14,6 +14,8 @@
 static struct gpio sensor_gpio = { .port  = GPIO_PORT_C, .pin = GPIO_PIN_0 };
 static struct gpio led_gpio = { .port = GPIO_PORT_B, .pin = GPIO_PIN_5 };
 
+uint8_t hum_temp_task_id;
+
 static uint8_t humidity_20_sec_samples[10];
 static struct sample_buffer humidity_20_sec_buffer;
 static uint8_t humidity_10_min_samples[300];
@@ -32,8 +34,10 @@ static struct sample_buffer* sample_buffers[4] = {
 static shell_result_t shell_handler(shell_command_t* command);
 
 static bool humidity_on_tick(time_t time, struct task* task);
-static bool flip_led_on_tick(time_t time, struct task* task);
 static void humidity_on_complete(struct hum_temp_reading* reading);
+
+static void start();
+static void stop();
 
 static uint16_t eeprom_load(void);
 static uint16_t eeprom_save(void);
@@ -48,18 +52,15 @@ bool setup_handler(time_t scheduled_time, struct task* task) {
   sample_buffer_init(&temperature_20_sec_buffer, temperature_20_sec_samples, ARRAY_SIZE(temperature_20_sec_samples));
   sample_buffer_init(&temperature_10_min_buffer, temperature_10_min_samples, ARRAY_SIZE(temperature_10_min_samples));
 
-  struct task_config humidity_task_config = { "hum", TASK_FOREVER, 2000 };
-	notifier_add_task(&humidity_task_config, humidity_on_tick, NULL, NULL);  
-
   gpio_set_mode(&led_gpio, GPIO_OUTPUT_NORMAL);
-	notifier_add_task(&(struct task_config){ "led", TASK_FOREVER, 500 }, flip_led_on_tick, NULL, NULL);
-
   shell_register_handler("ht", shell_handler);
-
+  
+  start();
   return false;
 }
 
 static bool humidity_on_tick(time_t time, struct task* task) {
+  gpio_write(&led_gpio, LOGIC_HIGH);
   hum_temp_read(&sensor_gpio, humidity_on_complete);
   return true;
 }
@@ -77,11 +78,17 @@ static void humidity_on_complete(struct hum_temp_reading* reading) {
 
   push_sample(&temperature_20_sec_buffer, current_reading.temperature);
   push_sample(&temperature_10_min_buffer, current_reading.temperature);
+  
+  gpio_write(&led_gpio, LOGIC_LOW);
 }
 
-static bool flip_led_on_tick(time_t time, struct task* task) {
-	gpio_flip(&led_gpio);
-	return true;
+static void start() {
+  struct task_config humidity_task_config = { "hum", TASK_FOREVER, 2000 };
+	hum_temp_task_id = notifier_add_task(&humidity_task_config, humidity_on_tick, NULL, NULL); 
+}
+
+static void stop() {
+	notifier_remove_task(hum_temp_task_id);   
 }
 
 static uint16_t eeprom_load() {
@@ -107,16 +114,20 @@ static shell_result_t shell_handler(shell_command_t* command) {
 	if (command->args_count == 0) return SHELL_RESULT_FAIL;
 	
 	if (string_eq(command->command, "ht")) {
-		if (string_eq(command->args[0], "stats")) {
-      print_stats();
-		} else if (string_eq(command->args[0], "samples")) {
-      print_samples();
+    if (string_eq(command->args[0], "start")) {
+      start();
+		} else if (string_eq(command->args[0], "stop")) {
+      stop();
 		} else if (string_eq(command->args[0], "save")) {
       uint16_t bytes_written = eeprom_save();
       shell_printf("%u samples written\n", bytes_written);
 		} else if (string_eq(command->args[0], "load")) {
       uint16_t bytes_read = eeprom_load();
       shell_printf("%u samples read\n", bytes_read);
+		} else if (string_eq(command->args[0], "stats")) {
+      print_stats();
+		} else if (string_eq(command->args[0], "samples")) {
+      print_samples();
 		} else {
 			return SHELL_RESULT_FAIL;
 		}
