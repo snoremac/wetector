@@ -13,6 +13,7 @@
 
 static struct gpio sensor_gpio = { .port  = GPIO_PORT_C, .pin = GPIO_PIN_0 };
 static struct gpio led_gpio = { .port = GPIO_PORT_B, .pin = GPIO_PIN_5 };
+static struct gpio speaker_gpio = { .port = GPIO_PORT_B, .pin = GPIO_PIN_3 };
 
 uint8_t hum_temp_task_id;
 
@@ -31,13 +32,17 @@ static struct sample_buffer* sample_buffers[4] = {
   &temperature_20_sec_buffer, &temperature_10_min_buffer
 };
 
+static uint8_t tone = 100;
+
 static shell_result_t shell_handler(shell_command_t* command);
 
 static bool humidity_on_tick(time_t time, struct task* task);
 static void humidity_on_complete(struct hum_temp_reading* reading);
+static bool tone_on_tick(time_t time, struct task* task);
 
-static void start();
-static void stop();
+static void start(void);
+static void stop(void);
+static void alarm(void);
 
 static uint16_t eeprom_load(void);
 static uint16_t eeprom_save(void);
@@ -82,6 +87,16 @@ static void humidity_on_complete(struct hum_temp_reading* reading) {
   gpio_write(&led_gpio, LOGIC_LOW);
 }
 
+static bool tone_on_tick(time_t time, struct task* task) {
+	gpio_set_pwm_duty_cycle(&speaker_gpio, tone);
+  if (tone == 0) {
+    tone = 100;
+  } else {
+    tone -= 20;
+  }
+  return true;
+}
+
 static void start() {
   struct task_config humidity_task_config = { "hum", TASK_FOREVER, 2000 };
 	hum_temp_task_id = notifier_add_task(&humidity_task_config, humidity_on_tick, NULL, NULL); 
@@ -89,6 +104,11 @@ static void start() {
 
 static void stop() {
 	notifier_remove_task(hum_temp_task_id);   
+}
+
+static void alarm(void) {
+	gpio_set_mode(&speaker_gpio, GPIO_OUTPUT_CTC);
+  notifier_add_task(&(struct task_config){"tone", TASK_FOREVER, 250}, tone_on_tick, NULL, NULL);  
 }
 
 static uint16_t eeprom_load() {
@@ -128,6 +148,8 @@ static shell_result_t shell_handler(shell_command_t* command) {
       print_stats();
 		} else if (string_eq(command->args[0], "samples")) {
       print_samples();
+		} else if (string_eq(command->args[0], "alarm")) {
+      alarm();
 		} else {
 			return SHELL_RESULT_FAIL;
 		}
