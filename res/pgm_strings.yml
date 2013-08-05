@@ -1,0 +1,12 @@
+
+wetector_shell_stats_header: "\\nMetric\\t\\t20 sec av\\t10 min av\\n"
+wetector_shell_stats_humidity_row: "Humidity\\t%lu %%\\t\\t%lu %%\\n"
+wetector_shell_stats_temperature_row: "Temperature\\t%lu C\\t\\t%lu C\\n"
+wetector_shell_tots_header: "\\nMetric\\t\\t20 sec cnt\\t20 sec sum\\t10 min cnt\\t10 min sum\\n"
+wetector_shell_tots_humidity_row: "Humidity\\t%u\\t\\t%lu\\t\\t%u\\t\\t%lu\\t\\t\\n"
+wetector_shell_tots_temperature_row: "Temperature\\t%u\\t\\t%lu\\t\\t%u\\t\\t%lu\\t\\t\\n"
+
+wetector_humidity_20_sec: "Humidity 20 sec:\\n"
+wetector_humidity_10_min: "Humidity 10 min:\\n"
+wetector_temperature_20_sec: "Temperature 20 sec:\\n"
+wetector_temperature_10_min: "Temperature 10 min:\\n"
