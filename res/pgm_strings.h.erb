@@ -1,0 +1,28 @@
+#ifndef PGM_STRINGS_H
+#define PGM_STRINGS_H
+
+<% 
+@yaml = YAML.load_file(File.dirname(__FILE__) + "/pgm_strings.yml")
+x = 0
+%>
+
+#define WT_PGM_STR(NAME, VAR) \
+char VAR[WT_PGM_SIZE_ ## NAME]; \
+wt_pgm_string(WT_PGM_IDX_ ## NAME, VAR, WT_PGM_SIZE_ ## NAME);
+
+<% @yaml.each do |key, value| %>
+#define WT_PGM_IDX_<%= key.upcase %> <%= x %> 
+<% x = x + 1 %>
+<% end %>
+
+<% @yaml.each do |key, value| %>
+#define WT_PGM_SIZE_<%= key.upcase %> <%= value.length + 1 %> 
+<% end %>
+
+<% @yaml.each do |key, value| %>
+extern const char wt_pgm_str_<%= key %>[];
+<% end %>
+
+void wt_pgm_string(uint8_t index, char * buf, uint8_t size);
+
+#endif

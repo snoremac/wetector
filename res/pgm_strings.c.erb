@@ -1,0 +1,19 @@
+#include <string.h>
+#include <avr/pgmspace.h>
+
+#include "wetector/pgm_strings.h"
+
+<% @yaml = YAML.load_file(File.dirname(__FILE__) + "/pgm_strings.yml") %>
+<% @yaml.each do |key, value| %>
+const char wt_pgm_str_<%= key %>[] PROGMEM = "<%= value %>";
+<% end %>
+
+PGM_P WT_PGM_STRINGS[] PROGMEM = {
+	<% @yaml.each do |key, value| %>
+	wt_pgm_str_<%= key %>,
+	<% end %>
+};
+
+void wt_pgm_string(uint8_t index, char * buf, uint8_t size) {
+  strncpy_P(buf, (PGM_P) pgm_read_word(&(WT_PGM_STRINGS[index])), size);  
+}

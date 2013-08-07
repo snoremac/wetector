@@ -21,7 +21,17 @@ INCLUDES = -I. -I$(WETECTOR_SRC) -I$(WETECTOR_BUILD) -I$(SENSIMATIC_SRC) -I$(SEN
 wetector : $(WETECTOR_HOME)/wetector.hex
 
 wetector_src = $(wildcard $(WETECTOR_SRC)/*.c)
-wetector_obj = $(WETECTOR_BUILD)/pgm_strings.o $(wetector_src:.c=.o)
+wetector_obj = $(WETECTOR_BUILD)/wetector/pgm_strings.o $(wetector_src:.c=.o)
+
+# Empty SECONDARY stops intermediary files (pgm_strings.c)
+# from being deleted by make
+.SECONDARY:
+
+$(WETECTOR_BUILD)/wetector/pgm_strings.o : $(WETECTOR_BUILD)/wetector/pgm_strings.h
+
+$(WETECTOR_BUILD)/wetector/pgm_strings.% : res/pgm_strings.%.erb
+	mkdir -p $(WETECTOR_BUILD)/wetector
+	erb -r yaml $< > $@
 
 $(WETECTOR_HOME)/wetector.elf : $(wetector_obj) $(SENSIMATIC_SRC)/sensimatic.a
 	$(CC) $(DEFAULT_LDFLAGS) $(LDFLAGS) -o $@ $^
@@ -32,6 +42,7 @@ $(SENSIMATIC_SRC)/sensimatic.a :
 
 .PHONY: clean
 clean:
+	rm -rf $(WETECTOR_BUILD)
 	rm -f $(addprefix $(WETECTOR_HOME)/, $(ARTIFACTS))
 	rm -f $(addprefix $(WETECTOR_SRC)/, $(ARTIFACTS))
 	rm -f $(addprefix $(SENSIMATIC_SRC)/, $(ARTIFACTS))

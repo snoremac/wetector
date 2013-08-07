@@ -7,7 +7,7 @@
 #include "hum_temp.h"
 #include "log.h"
 #include "notifier.h"
-#include "pgm_strings.h"
+#include "wetector/pgm_strings.h"
 #include "hal_gpio.h"
 #include "sample_buffer.h"
 
@@ -179,23 +179,31 @@ uint16_t hum_temp_save(void) {
 }
 
 struct hum_temp_stats hum_temp_current_stats(void) {
-  struct hum_temp_stats stats;
-  stats.humidity_av_20_sec = humidity_20_sec_buffer.sum / humidity_20_sec_buffer.count;
-  stats.humidity_av_10_min = humidity_10_min_buffer.sum / humidity_10_min_buffer.count;
-  stats.temperature_av_20_sec = temperature_20_sec_buffer.sum / temperature_20_sec_buffer.count;
-  stats.temperature_av_10_min = temperature_10_min_buffer.sum / temperature_10_min_buffer.count;
+  struct hum_temp_stats stats = { 0 };
+  if (humidity_20_sec_buffer.count > 0) {
+    stats.humidity_av_20_sec = humidity_20_sec_buffer.sum / humidity_20_sec_buffer.count;    
+  }
+  if (humidity_10_min_buffer.count > 0) {
+    stats.humidity_av_10_min = humidity_10_min_buffer.sum / humidity_10_min_buffer.count;
+  }
+  if (temperature_20_sec_buffer.count > 0) {
+    stats.temperature_av_20_sec = temperature_20_sec_buffer.sum / temperature_20_sec_buffer.count;    
+  }
+  if (temperature_10_min_buffer.count > 0) {
+    stats.temperature_av_10_min = temperature_10_min_buffer.sum / temperature_10_min_buffer.count;
+  }
   return stats;
 }
 
 void hum_temp_print_stats(FILE* stream) {
   struct hum_temp_stats stats = hum_temp_current_stats();
   
-  PGM_STR(WETECTOR_SHELL_STATS_HEADER, shell_stats_header);
-  PGM_STR(WETECTOR_SHELL_STATS_HUMIDITY_ROW, shell_stats_humidity_row);
-  PGM_STR(WETECTOR_SHELL_STATS_TEMPERATURE_ROW, shell_stats_temperature_row);
-  PGM_STR(WETECTOR_SHELL_TOTS_HEADER, shell_tots_header);
-  PGM_STR(WETECTOR_SHELL_TOTS_HUMIDITY_ROW, shell_tots_humidity_row);
-  PGM_STR(WETECTOR_SHELL_TOTS_TEMPERATURE_ROW, shell_tots_temperature_row);
+  WT_PGM_STR(WETECTOR_SHELL_STATS_HEADER, shell_stats_header);
+  WT_PGM_STR(WETECTOR_SHELL_STATS_HUMIDITY_ROW, shell_stats_humidity_row);
+  WT_PGM_STR(WETECTOR_SHELL_STATS_TEMPERATURE_ROW, shell_stats_temperature_row);
+  WT_PGM_STR(WETECTOR_SHELL_TOTS_HEADER, shell_tots_header);
+  WT_PGM_STR(WETECTOR_SHELL_TOTS_HUMIDITY_ROW, shell_tots_humidity_row);
+  WT_PGM_STR(WETECTOR_SHELL_TOTS_TEMPERATURE_ROW, shell_tots_temperature_row);
   
   fprintf(stream, shell_stats_header);
   fprintf(stream, shell_stats_humidity_row, stats.humidity_av_20_sec, stats.humidity_av_10_min);
@@ -219,10 +227,10 @@ void hum_temp_print_stats(FILE* stream) {
 }
 
 void hum_temp_print_samples(FILE* stream) {
-  PGM_STR(WETECTOR_HUMIDITY_20_SEC, humidity_20_sec);
-  PGM_STR(WETECTOR_HUMIDITY_10_MIN, humidity_10_min);
-  PGM_STR(WETECTOR_TEMPERATURE_20_SEC, temperature_20_sec);
-  PGM_STR(WETECTOR_TEMPERATURE_10_MIN, temperature_10_min);
+  WT_PGM_STR(WETECTOR_HUMIDITY_20_SEC, humidity_20_sec);
+  WT_PGM_STR(WETECTOR_HUMIDITY_10_MIN, humidity_10_min);
+  WT_PGM_STR(WETECTOR_TEMPERATURE_20_SEC, temperature_20_sec);
+  WT_PGM_STR(WETECTOR_TEMPERATURE_10_MIN, temperature_10_min);
   
   fprintf(stream, humidity_20_sec);
   print_sample_buffer(&humidity_20_sec_buffer, stream);

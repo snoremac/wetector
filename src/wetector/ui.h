@@ -6,7 +6,11 @@
 #include "common.h"
 #include "gpio.h"
 
-enum colour {
+enum led_state {
+  LED_OFF, LED_ON
+};
+
+enum led_colour {
   OFF, RED, GREEN, YELLOW, BLUE
 };
 
