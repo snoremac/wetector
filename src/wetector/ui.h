@@ -4,7 +4,7 @@
 #include <inttypes.h>
 
 #include "common.h"
-#include "gpio.h"
+#include "event/gpio_event.h"
 
 enum led_state {
   LED_OFF, LED_ON

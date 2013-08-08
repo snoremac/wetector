@@ -5,7 +5,7 @@
 #include <util/delay.h>
 
 #include "log.h"
-#include "hal_gpio.h"
+#include "hal/hal_gpio.h"
 
 enum DHT11_RESULT {
   DHT11_RESULT_SUCCESS, DHT11_RESULT_FAIL_START_1, DHT11_RESULT_FAIL_START_2,
@@ -19,7 +19,7 @@ static result_t checksum(uint8_t* data);
 
 void dht11_signal_start(const struct gpio* gpio) {
   struct gpio_regs regs = { 0 };
-  hal_gpio_port_regs(gpio, &regs);
+  gpio_port_regs(gpio, &regs);
 
   reset(gpio, &regs);
   *(regs.port_data_reg) &= ~_BV(gpio->pin);
@@ -28,7 +28,7 @@ void dht11_signal_start(const struct gpio* gpio) {
 result_t dht11_read(const struct gpio* gpio, uint8_t* data) {
   result_t result;  
   struct gpio_regs regs = { 0 };
-  hal_gpio_port_regs(gpio, &regs);
+  gpio_port_regs(gpio, &regs);
   
   result = send_start(gpio, &regs);
   if (result != DHT11_RESULT_SUCCESS) return result;

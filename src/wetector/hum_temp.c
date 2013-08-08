@@ -8,7 +8,7 @@
 #include "log.h"
 #include "notifier.h"
 #include "wetector/pgm_strings.h"
-#include "hal_gpio.h"
+#include "hal/hal_gpio.h"
 #include "sample_buffer.h"
 
 #define EVENT_TYPE_HUM_TEMP 0x06
@@ -78,18 +78,20 @@ static bool calibrate_on_tick(time_t time, struct task* task) {
 
 static bool calibrate_on_complete(time_t time, struct task* task) {
   struct hum_temp_stats current_stats = hum_temp_current_stats();
-  for (uint8_t i = 0; i < humidity_20_sec_buffer.size; i++) {
+
+  for (uint16_t i = 0; i < humidity_20_sec_buffer.size; i++) {
     push_sample(&humidity_20_sec_buffer, current_stats.humidity_av_20_sec);
   }
-  for (uint8_t i = 0; i < humidity_10_min_buffer.size; i++) {
+  for (uint16_t i = 0; i < humidity_10_min_buffer.size; i++) {
     push_sample(&humidity_10_min_buffer, current_stats.humidity_av_20_sec);
   }
-  for (uint8_t i = 0; i < temperature_20_sec_buffer.size; i++) {
+  for (uint16_t i = 0; i < temperature_20_sec_buffer.size; i++) {
     push_sample(&temperature_20_sec_buffer, current_stats.temperature_av_20_sec);
   }
-  for (uint8_t i = 0; i < temperature_10_min_buffer.size; i++) {
+  for (uint16_t i = 0; i < temperature_10_min_buffer.size; i++) {
     push_sample(&temperature_10_min_buffer, current_stats.temperature_av_20_sec);
   }
+  
   event_fire_event(&current_calibrate_event);
   return false;
 }
@@ -155,7 +157,7 @@ static bool on_hum_temp_reading(event_t* event) {
 
   push_sample(&temperature_20_sec_buffer, current_reading.temperature);
   push_sample(&temperature_10_min_buffer, current_reading.temperature);
-  
+
   return false;
 }
 

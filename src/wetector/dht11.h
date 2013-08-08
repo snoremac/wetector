@@ -4,7 +4,7 @@
 #include <inttypes.h>
 
 #include "common.h"
-#include "hal_gpio.h"
+#include "hal/hal_gpio.h"
 
 result_t dht11_read(const struct gpio* gpio, uint8_t* data);
 
