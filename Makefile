@@ -15,7 +15,7 @@ include $(SENSIMATIC_HOME)/mk/common.mk
 
 DEFAULT_LDFLAGS += -lprintf_flt -Wl,-u,vfprintf
 
-INCLUDES = -I. -I$(WETECTOR_SRC) -I$(WETECTOR_BUILD) -I$(SENSIMATIC_SRC) -I$(SENSIMATIC_SRC)/hal
+INCLUDES = -I. -I$(WETECTOR_SRC) -I$(WETECTOR_BUILD) -I$(SENSIMATIC_SRC)
 
 .PHONY: wetector
 wetector : $(WETECTOR_HOME)/wetector.hex

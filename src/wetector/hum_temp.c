@@ -8,7 +8,7 @@
 #include "log.h"
 #include "notifier.h"
 #include "wetector/pgm_strings.h"
-#include "hal/hal_gpio.h"
+#include "hal/hal.h"
 #include "sample_buffer.h"
 
 #define EVENT_TYPE_HUM_TEMP 0x06

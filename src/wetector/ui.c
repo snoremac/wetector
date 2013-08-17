@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "event/gpio_event.h"
-#include "hal_gpio.h"
+#include "hal/hal.h"
 #include "log.h"
 #include "notifier.h"
 #include "scheduler.h"
@@ -47,6 +47,7 @@ void ui_init(void) {
   gpio_set_mode(&status_green_gpio, GPIO_OUTPUT);
   gpio_set_mode(&status_blue_gpio, GPIO_OUTPUT);
   ui_set_status(OFF, false);
+  status_task_id = TASK_NO_TASK;
   
   gpio_set_mode(&speaker_gpio, GPIO_OUTPUT);
   alarm_tone = 0;
@@ -63,9 +64,12 @@ void ui_set_power_on(void) {
 }
 
 void ui_set_status(uint8_t colour, bool blink) {
-  scheduler_remove_task(status_task_id);
+  if (status_task_id != TASK_NO_TASK) {
+    scheduler_remove_task(status_task_id);
+    status_task_id = TASK_NO_TASK;
+  }
   for (uint8_t i = 0; i < 3; i++) {
-    gpio_set_duty_cycle(status_gpios[i], status_gpio_color_levels[colour][i]);
+    gpio_set_duty_cycle(status_gpios[i], status_gpio_color_levels[colour][i]);      
   }
   if (colour == OFF) {
     status_state = LED_OFF;

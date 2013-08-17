@@ -5,7 +5,7 @@
 #include <util/delay.h>
 
 #include "log.h"
-#include "hal/hal_gpio.h"
+#include "hal/hal.h"
 
 enum DHT11_RESULT {
   DHT11_RESULT_SUCCESS, DHT11_RESULT_FAIL_START_1, DHT11_RESULT_FAIL_START_2,
