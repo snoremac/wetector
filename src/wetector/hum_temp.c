@@ -107,7 +107,8 @@ void hum_temp_stop_collector() {
 
 void hum_temp_start_monitor(event_handler on_change) {
   struct task_config monitor_task_config = { "htmon", TASK_FOREVER, 20000 };
-	monitor_task_id = notifier_add_task(&monitor_task_config, monitor_on_tick, NULL, NULL); 
+	monitor_task_id = notifier_add_task(&monitor_task_config, monitor_on_tick, NULL, NULL);
+  notifier_add_event_listener(EVENT_TYPE_HUM_TEMP, EVENT_DESCRIPTOR_HUM_TEMP_CHANGE, on_change);
 }
 
 void hum_temp_stop_monitor() {
@@ -115,6 +116,14 @@ void hum_temp_stop_monitor() {
 }
 
 static bool monitor_on_tick(time_t time, struct task* task) {
+  struct hum_temp_stats stats = hum_temp_current_stats();
+  int8_t humidity_change = stats.humidity_av_20_sec - stats.humidity_av_10_min;
+  LOG_INFO("Humidity difference: %i\n", humidity_change);
+  if (humidity_change > 10) {
+    LOG_INFO("Humidity difference beyond threshold: %i\n", humidity_change);
+    current_change_event.stats = stats;
+    event_fire_event((event_t*) &current_change_event);
+  }
   return true;
 }
 
@@ -201,46 +210,26 @@ void hum_temp_print_stats(FILE* stream) {
   struct hum_temp_stats stats = hum_temp_current_stats();
   
   WT_PGM_STR(WETECTOR_SHELL_STATS_HEADER, shell_stats_header);
-  WT_PGM_STR(WETECTOR_SHELL_STATS_HUMIDITY_ROW, shell_stats_humidity_row);
-  WT_PGM_STR(WETECTOR_SHELL_STATS_TEMPERATURE_ROW, shell_stats_temperature_row);
-  WT_PGM_STR(WETECTOR_SHELL_TOTS_HEADER, shell_tots_header);
-  WT_PGM_STR(WETECTOR_SHELL_TOTS_HUMIDITY_ROW, shell_tots_humidity_row);
-  WT_PGM_STR(WETECTOR_SHELL_TOTS_TEMPERATURE_ROW, shell_tots_temperature_row);
+  WT_PGM_STR(WETECTOR_SHELL_STATS_ROW, shell_stats_row);
   
   fprintf(stream, shell_stats_header);
-  fprintf(stream, shell_stats_humidity_row, stats.humidity_av_20_sec, stats.humidity_av_10_min);
-  fprintf(stream, shell_stats_temperature_row, stats.temperature_av_20_sec, stats.temperature_av_10_min);
+  fprintf(stream, shell_stats_row, "H", stats.humidity_av_20_sec, stats.humidity_av_10_min);
+  fprintf(stream, shell_stats_row, "T", stats.temperature_av_20_sec, stats.temperature_av_10_min);
 
-  fprintf(stream, shell_tots_header);
-  fprintf(stream, shell_tots_humidity_row,
-    humidity_20_sec_buffer.count,
-    humidity_20_sec_buffer.sum,
-    humidity_10_min_buffer.count,
-    humidity_10_min_buffer.sum
-  );
-  fprintf(stream, shell_tots_temperature_row,
-    temperature_20_sec_buffer.count,
-    temperature_20_sec_buffer.sum,
-    temperature_10_min_buffer.count,
-    temperature_10_min_buffer.sum
-  );
-      
   fputc('\n', stream);
 }
 
 void hum_temp_print_samples(FILE* stream) {
-  WT_PGM_STR(WETECTOR_HUMIDITY_20_SEC, humidity_20_sec);
-  WT_PGM_STR(WETECTOR_HUMIDITY_10_MIN, humidity_10_min);
-  WT_PGM_STR(WETECTOR_TEMPERATURE_20_SEC, temperature_20_sec);
-  WT_PGM_STR(WETECTOR_TEMPERATURE_10_MIN, temperature_10_min);
+  WT_PGM_STR(WETECTOR_SHELL_SAMPLES_20_SEC, shell_samples_20_sec);
+  WT_PGM_STR(WETECTOR_SHELL_SAMPLES_10_MIN, shell_samples_10_min);
   
-  fprintf(stream, humidity_20_sec);
+  fprintf(stream, shell_samples_20_sec, "H");
   print_sample_buffer(&humidity_20_sec_buffer, stream);
-  fprintf(stream, humidity_10_min);
+  fprintf(stream, shell_samples_10_min, "H");
   print_sample_buffer(&humidity_10_min_buffer, stream);
-  fprintf(stream, temperature_20_sec);
+  fprintf(stream, shell_samples_20_sec, "T");
   print_sample_buffer(&temperature_20_sec_buffer, stream);
-  fprintf(stream, temperature_10_min);
+  fprintf(stream, shell_samples_10_min, "T");
   print_sample_buffer(&temperature_10_min_buffer, stream);
 }
 

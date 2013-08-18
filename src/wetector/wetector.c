@@ -21,7 +21,8 @@ bool setup_handler(time_t scheduled_time, struct task* task) {
   shell_register_handler("ht", shell_handler);
   hum_temp_init();
   ui_init();  
-  calibrate();  
+  calibrate();
+
   return false;
 }
 
@@ -61,17 +62,17 @@ static shell_result_t shell_handler(shell_command_t* command) {
       start();
 		} else if (string_eq(command->args[0], "stop")) {
       stop();
-		} else if (string_eq(command->args[0], "save")) {
+		} else if (string_eq(command->args[0], "sv")) {
       uint16_t bytes_written = hum_temp_save();
-      shell_printf("%u samples written\n", bytes_written);
-		} else if (string_eq(command->args[0], "load")) {
+      shell_printf("%u ->\n", bytes_written);
+		} else if (string_eq(command->args[0], "ld")) {
       uint16_t bytes_read = hum_temp_load();
-      shell_printf("%u samples read\n", bytes_read);
-		} else if (string_eq(command->args[0], "stats")) {
+      shell_printf("%u <-\n", bytes_read);
+		} else if (string_eq(command->args[0], "av")) {
       hum_temp_print_stats(shell_get_stream());
-		} else if (string_eq(command->args[0], "samples")) {
+		} else if (string_eq(command->args[0], "dmp")) {
       hum_temp_print_samples(shell_get_stream());
-		} else if (string_eq(command->args[0], "alarm")) {
+		} else if (string_eq(command->args[0], "al")) {
       ui_set_alarm_on();
 		} else {
 			return SHELL_RESULT_FAIL;
