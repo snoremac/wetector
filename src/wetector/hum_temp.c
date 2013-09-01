@@ -6,7 +6,6 @@
 #include "dht11.h"
 #include "hum_temp.h"
 #include "log.h"
-#include "notifier.h"
 #include "wetector/pgm_strings.h"
 #include "hal/hal.h"
 #include "sample_buffer.h"
@@ -15,6 +14,9 @@
 #define EVENT_DESCRIPTOR_HUM_TEMP_READING 0x00
 #define EVENT_DESCRIPTOR_HUM_TEMP_CHANGE 0x01
 #define EVENT_DESCRIPTOR_HUM_TEMP_CALIBRATE 0x02
+
+#define CALIBRATE_SAMPLES 10
+
 #define DHT11_POLL_INTERVAL 2000
 
 static struct gpio sensor_gpio = { .port  = GPIO_PORT_C, .pin = GPIO_PIN_0 };
@@ -50,11 +52,11 @@ static struct event current_calibrate_event = {
   .descriptor = EVENT_DESCRIPTOR_HUM_TEMP_CALIBRATE
 };
 
-static bool calibrate_on_tick(time_t time, struct task* task);
-static bool calibrate_on_complete(time_t time, struct task* task);
-static bool collector_on_tick(time_t time, struct task* task);
-static bool monitor_on_tick(time_t time, struct task* task);
-static bool hum_temp_complete_read(time_t scheduled_time, struct task* task);
+static void calibrate_task(struct task* task);
+static void calibrate_complete_task(struct task* task);
+static void collector_task(struct task* task);
+static void monitor_task(struct task* task);
+static void hum_temp_complete_read(struct task* task);
 static bool on_hum_temp_reading(event_t* event);
 
 void hum_temp_init() {
@@ -66,17 +68,20 @@ void hum_temp_init() {
 }
 
 void hum_temp_calibrate(event_handler on_complete) {
-  notifier_add_event_listener(EVENT_TYPE_HUM_TEMP, EVENT_DESCRIPTOR_HUM_TEMP_CALIBRATE, on_complete);
-  struct task_config calibrate_task_config = { "htcal", 10, 2000 };
-	notifier_add_task(&calibrate_task_config, calibrate_on_tick, calibrate_on_complete, NULL); 
+  event_add_listener(EVENT_TYPE_HUM_TEMP, EVENT_DESCRIPTOR_HUM_TEMP_CALIBRATE, on_complete);
+  struct task_config calibrate_task_config = { "htcal", CALIBRATE_SAMPLES, DHT11_POLL_INTERVAL };
+	scheduler_add_task(&calibrate_task_config, calibrate_task, NULL); 
 }
 
-static bool calibrate_on_tick(time_t time, struct task* task) {
+static void calibrate_task(struct task* task) {
   hum_temp_read(on_hum_temp_reading);
-  return true;
+  if (task->times_run == CALIBRATE_SAMPLES) {
+    struct task_config calibrate_task_config = { "htcal", TASK_ONCE, TASK_ASAP };
+    scheduler_add_task(&calibrate_task_config, calibrate_complete_task, NULL);     
+  }
 }
 
-static bool calibrate_on_complete(time_t time, struct task* task) {
+static void calibrate_complete_task(struct task* task) {
   struct hum_temp_stats current_stats = hum_temp_current_stats();
 
   for (uint16_t i = 0; i < humidity_20_sec_buffer.size; i++) {
@@ -93,29 +98,28 @@ static bool calibrate_on_complete(time_t time, struct task* task) {
   }
   
   event_fire_event(&current_calibrate_event);
-  return false;
 }
 
 void hum_temp_start_collector() {
-  struct task_config collector_task_config = { "htcol", TASK_FOREVER, 2000 };
-	collector_task_id = notifier_add_task(&collector_task_config, collector_on_tick, NULL, NULL);   
+  struct task_config collector_task_config = { "htcol", TASK_FOREVER, DHT11_POLL_INTERVAL };
+	collector_task_id = scheduler_add_task(&collector_task_config, collector_task, NULL);   
 }
 
 void hum_temp_stop_collector() {
-	notifier_remove_task(collector_task_id);
+	scheduler_remove_task(collector_task_id);
 }
 
 void hum_temp_start_monitor(event_handler on_change) {
-  struct task_config monitor_task_config = { "htmon", TASK_FOREVER, 20000 };
-	monitor_task_id = notifier_add_task(&monitor_task_config, monitor_on_tick, NULL, NULL);
-  notifier_add_event_listener(EVENT_TYPE_HUM_TEMP, EVENT_DESCRIPTOR_HUM_TEMP_CHANGE, on_change);
+  struct task_config monitor_task_config = { "htmon", TASK_FOREVER, DHT11_POLL_INTERVAL * 10 };
+	monitor_task_id = scheduler_add_task(&monitor_task_config, monitor_task, NULL);
+  event_add_listener(EVENT_TYPE_HUM_TEMP, EVENT_DESCRIPTOR_HUM_TEMP_CHANGE, on_change);
 }
 
 void hum_temp_stop_monitor() {
-	notifier_remove_task(monitor_task_id);   
+	scheduler_remove_task(monitor_task_id);   
 }
 
-static bool monitor_on_tick(time_t time, struct task* task) {
+static void monitor_task(struct task* task) {
   struct hum_temp_stats stats = hum_temp_current_stats();
   int8_t humidity_change = stats.humidity_av_20_sec - stats.humidity_av_10_min;
   LOG_INFO("Humidity difference: %i\n", humidity_change);
@@ -124,22 +128,20 @@ static bool monitor_on_tick(time_t time, struct task* task) {
     current_change_event.stats = stats;
     event_fire_event((event_t*) &current_change_event);
   }
-  return true;
 }
 
-static bool collector_on_tick(time_t time, struct task* task) {
+static void collector_task(struct task* task) {
   hum_temp_read(on_hum_temp_reading);
-  return true;
 }
 
 void hum_temp_read(event_handler on_reading) {
-  notifier_add_event_listener(EVENT_TYPE_HUM_TEMP, EVENT_DESCRIPTOR_HUM_TEMP_READING, on_reading);
+  event_add_listener(EVENT_TYPE_HUM_TEMP, EVENT_DESCRIPTOR_HUM_TEMP_READING, on_reading);
   dht11_signal_start(&sensor_gpio);
   struct task_config read_task_config = { "dhtrd", TASK_ONCE, 18 };
-	notifier_add_task(&read_task_config, hum_temp_complete_read, NULL, &sensor_gpio);
+	scheduler_add_task(&read_task_config, hum_temp_complete_read, &sensor_gpio);
 }
 
-static bool hum_temp_complete_read(time_t scheduled_time, struct task* task) {
+static void hum_temp_complete_read(struct task* task) {
   uint8_t dht11_data[5];
   result_t result = dht11_read((struct gpio*) task->data, dht11_data);
   
@@ -150,8 +152,6 @@ static bool hum_temp_complete_read(time_t scheduled_time, struct task* task) {
     current_read_event.reading = (struct hum_temp_reading) { 0 };    
   }
   event_fire_event((event_t*) &current_read_event);
-
-  return false;
 }
 
 static bool on_hum_temp_reading(event_t* event) {

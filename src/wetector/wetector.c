@@ -4,7 +4,6 @@
 #include "common.h"
 #include "hum_temp.h"
 #include "log.h"
-#include "notifier.h"
 #include "shell.h"
 #include "ui.h"
 
@@ -17,13 +16,11 @@ static bool on_hum_temp_change(event_t* event);
 
 static shell_result_t shell_handler(shell_command_t* command);
 
-bool setup_handler(time_t scheduled_time, struct task* task) {
+void setup_task(struct task* task) {
   shell_register_handler("ht", shell_handler);
   hum_temp_init();
   ui_init();  
   calibrate();
-
-  return false;
 }
 
 static void calibrate() {

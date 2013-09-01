@@ -6,7 +6,9 @@
 
 #include "common.h"
 #include "clock.h"
-#include "notifier.h"
+#include "event/event.h"
+#include "scheduler.h"
+
 
 struct hum_temp_reading {
   uint8_t humidity;
